@@ -1,42 +1,26 @@
-import os
-import yt_dlp
-from groq import Groq
+import re
+from youtube_transcript_api import YouTubeTranscriptApi
 
-client = Groq(api_key=os.environ["GROQ_API_KEY"])
-
-def extract_audio(video_url: str, output_path: str = "temp_audio") -> str:
-    ydl_opts = {
-        "format": "bestaudio/best",
-        "outtmpl": output_path,
-        "postprocessors": [{
-            "key": "FFmpegExtractAudio",
-            "preferredcodec": "mp3",
-            "preferredquality": "64",
-        }],
-        "quiet": True,
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([video_url])
-    return f"{output_path}.mp3"
+def extract_video_id(url: str) -> str:
+    patterns = [
+        r'(?:v=|\/)([0-9A-Za-z_-]{11})',
+        r'(?:youtu\.be\/)([0-9A-Za-z_-]{11})',
+    ]
+    for p in patterns:
+        m = re.search(p, url)
+        if m:
+            return m.group(1)
+    raise ValueError("رابط YouTube غير صالح")
 
 def transcribe(video_url: str) -> list[dict]:
-    audio_path = extract_audio(video_url)
-    try:
-        with open(audio_path, "rb") as f:
-            result = client.audio.transcriptions.create(
-                file=f,
-                model="whisper-large-v3",
-                response_format="verbose_json",
-                timestamp_granularities=["segment"],
-            )
-        return [
-            {
-                "start": seg.start,
-                "end": seg.end,
-                "text": seg.text.strip(),
-            }
-            for seg in result.segments
-        ]
-    finally:
-        if os.path.exists(audio_path):
-            os.remove(audio_path)
+    video_id = extract_video_id(video_url)
+    ytt = YouTubeTranscriptApi()
+    transcript = ytt.fetch(video_id)
+    return [
+        {
+            "start": entry.start,
+            "end": entry.start + entry.duration,
+            "text": entry.text.strip(),
+        }
+        for entry in transcript
+    ]
