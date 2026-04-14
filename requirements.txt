@@ -4,3 +4,4 @@ yt-dlp
 groq
 httpx
 python-multipart
+supabase
