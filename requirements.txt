@@ -1,7 +1,6 @@
 fastapi
 uvicorn
 youtube-transcript-api
-groq
 httpx
 python-multipart
 supabase
